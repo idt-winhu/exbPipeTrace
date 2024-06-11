@@ -1,0 +1,14 @@
+{
+  "name": "GML上傳",
+  "version": "1.0.0",
+  "description": "GML上傳",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Win.Hu",
+  "license": "IDT",
+  "dependencies": {
+    "react-draggable": "^4.4.5"
+  }
+}

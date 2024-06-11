@@ -1,0 +1,17 @@
+{
+  "name": "TraceExport",
+  "type": "widget",
+  "version": "1.10.0",
+  "exbVersion": "1.10.0",
+  "author": "Win.Hu",
+  "description": "TraceExport",
+  "dependency": ["jimu-arcgis"],
+  "copyright": "",
+  "license": "",
+  "properties": {},
+  "translatedLocales": ["en"],
+  "defaultSize": {
+    "width": 800,
+    "height": 500
+  }
+}

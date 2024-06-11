@@ -1,0 +1,16 @@
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 500px;
+  margin-bottom: 0px;
+  column-gap: 1px;  
+}
+
+.sensitive-iqy-loading .jimu-loading {
+    background-color: rgba(0, 0, 0, 0.2);
+    display: none;
+}
+.sensitive-iqy-loading .jimu-loading.show {
+    background-color: rgba(0, 0, 0, 0.3);
+    display: block;
+}
