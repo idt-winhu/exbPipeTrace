@@ -1,10 +1,10 @@
 {
-  "name": "TraceExport",
+  "name": "追蹤",
   "type": "widget",
   "version": "1.10.0",
   "exbVersion": "1.10.0",
   "author": "Win.Hu",
-  "description": "TraceExport",
+  "description": "追蹤",
   "dependency": ["jimu-arcgis"],
   "copyright": "",
   "license": "",

@@ -17,7 +17,9 @@ import {
   createElement
 } from './Utils';
 import projection       from 'esri/geometry/projection'
+import SpatialReference from 'esri/geometry/SpatialReference'
 import MapView          from 'esri/views/MapView'
+import Point            from 'esri/geometry/Point'
 
 const { useEffect, useRef, useState, useCallback } = React;
 const { useSelector } = ReactRedux;
@@ -26,7 +28,6 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const {        
-    comboTraceHead,
     serverProgRootURL
   } = props.config;
   const [jimuView, setJimuView] = useState<JimuMapView>(null);
@@ -40,9 +41,12 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
 
   const activeViewChangeHandler = (jmvObj: JimuMapView) => {
     if (jmvObj) {
+      mapViewRef.current = jmvObj.view;
       setMapView(jmvObj.view as MapView);
       setJimuView(jmvObj);
-      initialWidgets();     // 地圖載入後初始化 widget 資料
+      getAccessToken();    
+      loadTraceList();     
+      projection.load();
     }
   };
 
@@ -74,13 +78,6 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   }
   const closeLoading = () =>{
     setShowLoading(false);
-  }
-
-  // 初始化元件
-  const initialWidgets = () => {
-    projection.load();   // 座標轉換工具載入
-    getAccessToken();    // 取得 token 之後用
-    loadTraceList();     // 載入軌跡 select 項目
   }
 
   // 取得 token 之後用
@@ -155,8 +152,23 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
 
     // 先呼叫 trace service 取得追蹤後各設備 globalId，接著才用這些 globalId 產生簡圖
     const formData = new FormData();
-    formData.append("traceGlobalId", traceGlobalId);
-    formData.append("locationGlobalId", "{57297DF8-B6B9-49FB-9A4D-E7112623297C}");
+    // 依 trace 模式
+    if( selectedTraceType == 'downstream' ) {
+      if( startPoint == "" ) {
+        closeLoading();
+        alert("尚未設定起點");
+        return;
+      }
+      else {
+         formData.append("traceGlobalId", "");
+         formData.append("locationGlobalId", startPoint);
+      }
+    }
+    else {
+      formData.append("traceGlobalId", traceGlobalId);
+      //formData.append("locationGlobalId", "{B08DBDAB-6356-4288-961B-9640285F57C8}");
+      formData.append("locationGlobalId", "");
+    }
     const xhr = new XMLHttpRequest();
     xhr.open("POST", serverProgRootURL+"/trace", true);
     xhr.onreadystatechange = () => {
@@ -164,7 +176,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         if( xhr.responseText.includes("error") ) {
             closeLoading();
             let err_msg = truncXML(xhr.responseText);
-            alert("查詢失敗，訊息:"+err_msg);
+            alert("此處無法trace");
         }
         else {
             let result = truncXML(xhr.responseText);
@@ -216,6 +228,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
               layer,
               feature,
               globalId: feature.attributes.globalid,
+              uid: feature.attributes.uid,
               layerName: layer.title || layer.id
             }))
           ]);
@@ -237,7 +250,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
       setGlobalIds(ids);
       highlightFeatures(ids);
     } else {
-      alert("並無 trace 到任何 globalid");
+      alert("並無 trace 到任何資料");
       return;
     }
 
@@ -319,6 +332,85 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
     });
   };
 
+  const [selectedTraceType, setSelectedTraceType] = useState('subnetwork');
+
+  const handleTraceTypeChange = (event) => {
+    setSelectedTraceType(event.target.value);
+  };
+
+  const mapViewRef = useRef(null);
+  const clickHandlerRef = useRef();
+  const [startPoint, setStartPoint] = useState('');
+  const [isButtonDisabled, setIsButtonDisabled] = useState(false);
+
+  const handleGetStartPointClick = () => {
+    setIsButtonDisabled(true);
+    if (clickHandlerRef.current) {
+      clickHandlerRef.current.remove();
+    }
+    clickHandlerRef.current = mapViewRef.current.on("click", handleMapClick);
+  };
+
+  const handleMapClick = async (event) => {
+
+    const screenPoint = {
+        x: event.x,
+        y: event.y
+    };
+
+    const response = await mapViewRef.current.hitTest(screenPoint);
+    const results = response.results;
+
+    if (results.length > 0) {
+      const graphic = results[0].graphic;
+      const point = graphic.geometry;
+      const point_3826 = new Point({
+        x: point.x,
+        y: point.y,
+        spatialReference: 3826
+      });
+      const point_4326 = projection.project(point_3826, SpatialReference.WGS84);
+
+      const attributes = graphic.attributes;
+      if (attributes) {
+        const objectId = attributes.objectid; 
+        const layerId = results[0].layer.layerId;
+
+        if (objectId && layerId) {
+          queryForGlobalId(layerId+"", objectId+"");
+        }
+      }
+    }
+
+    if (clickHandlerRef.current) {
+      clickHandlerRef.current.remove();
+    }
+    setIsButtonDisabled(false);
+  };
+
+  const queryForGlobalId = (layerId:string, objectId:string) => {
+    const formData = new FormData();
+    formData.append("layerId", layerId);
+    formData.append("objectId", objectId);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", serverProgRootURL+"/queryForGlobalId", true);
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        if( xhr.responseText.includes("error") ) {
+          let err_msg = truncXML(xhr.responseText);
+          alert("搜尋 globalId 失敗，訊息:"+err_msg);
+        }
+        else
+        {
+          let globalid = truncXML(xhr.responseText);
+          setStartPoint(`${globalid}`);
+        }
+      }
+    };
+    xhr.send(formData);
+  };
+
+
   return (
     <div className="jimu-widget">
       {props.useMapWidgetIds && props.useMapWidgetIds.length === 1 && (
@@ -345,33 +437,78 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
       )}
       {jimuView !== null && (
         <div className="main-grid" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <label>{comboTraceHead}</label>
-          <select
-            title={comboTraceHead}
-            value={traceGlobalId}
-            onChange={traceItemChange}
-          >
-            {
-              traceList.map((trace) => {
-                return (<option key={trace.name} value={trace.globalId}>{trace.name},{trace.globalId}</option>);
-              });
-            }
-          </select>
-          <button onClick={genSingleDiagram}>產製</button>
+          <div style={{ width: '100%' }}>
+            <label style={{ marginRight: '10px' }}>
+              <input
+                type="radio"
+                name="options"
+                value="subnetwork"
+                checked={selectedTraceType === 'subnetwork'}
+                onChange={handleTraceTypeChange}
+              />
+              子網模式
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="options"
+                value="downstream"
+                checked={selectedTraceType === 'downstream'}
+                onChange={handleTraceTypeChange}
+              />
+              起點模式
+            </label>
+          </div>
+          {selectedTraceType === 'subnetwork' && (
+            <div id="subnetwork">
+              <label>挑選待追蹤子網：</label>
+              <select
+                title='子網'
+                value={traceGlobalId}
+                onChange={traceItemChange}
+              >
+                {
+                  traceList.map((trace) => {
+                    return (<option key={trace.name} value={trace.globalId}>{trace.name}</option>);
+                  });
+                }
+              </select>
+            </div>
+          )}
+          {selectedTraceType === 'downstream' && (
+            <div id="downstream">
+              <label>起點 globalId：</label>
+              <input
+                type="text"
+                value={startPoint}
+                onChange={(e) => setStartPoint(e.target.value)}
+                style={{ marginRight: '5px', width: '300px' }}
+              />
+              <button 
+                onClick={handleGetStartPointClick}
+                disabled={isButtonDisabled}
+                style={{ 
+                  backgroundColor: isButtonDisabled ? 'lightgray' : '',
+                  cursor: isButtonDisabled ? 'not-allowed' : 'pointer'
+                }}
+              >地圖點選</button>
+            </div>
+          )}
+          <button onClick={genSingleDiagram} style={{ marginTop: '5px' }}>產製</button>
           追蹤結果：
           <table border="1">
             <thead>
               <tr>
-                <th>globalid</th>
+                <th>uid</th>
                 <th>圖層</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              {traceFeatures.map( ({ feature, globalId, layerName }, index) => 
+              {traceFeatures.map( ({ feature, uid, globalId, layerName }, index) => 
                 (
                   <tr key={index}>
-                    <td>{globalId}</td>
+                    <td>{uid}</td>
                     <td>{layerName}</td>
                     <td>
                       <button onClick={() => zoomToFeature(feature)}>移至此</button>

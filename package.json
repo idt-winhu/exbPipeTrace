@@ -1,7 +1,7 @@
 {
-  "name": "GML上傳",
+  "name": "追蹤",
   "version": "1.0.0",
-  "description": "GML上傳",
+  "description": "追蹤",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

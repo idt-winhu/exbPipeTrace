@@ -5,7 +5,8 @@ import React, { useState } from 'react';
 export const truncXML = (xml: string): string => {
   return  xml.replace("<?xml version=\"1.0\" encoding=\"utf-8\"?>","")
              .replace("<string xmlns=\"http://tempuri.org/\">","")
-             .replace("</string>","");                        
+             .replace("</string>","")                        
+             .replace("\r\n","");                        
 
 };
 

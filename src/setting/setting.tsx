@@ -36,16 +36,7 @@ const Setting = (props: AllWidgetSettingProps<IMConfig>) => {
           />
         </SettingRow>
       </SettingSection>      
-      <SettingSection title="作業參數:">
-        <SettingRow>軌跡選取標題</SettingRow>
-        <SettingRow>
-          <textarea
-              className="w-100 p-1"
-              style={{ whiteSpace: 'wrap', minHeight: '40px' }}
-              value={props.config.comboTraceHead}
-              onChange={(e) => propChange('comboTraceHead', e.target.value)}
-          ></textarea>
-        </SettingRow>
+      <SettingSection title="作業參數:">        
         <SettingRow>主機端服務程式根路徑</SettingRow>
         <SettingRow>
           <textarea
