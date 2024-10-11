@@ -3,8 +3,12 @@
   ReactRedux,
   AllWidgetProps,
   getAppStore,
-  IMState
+  IMState,
+  DataSourceManager,
+  DataSourceComponent
 } from 'jimu-core';
+import { QueryParams, FeatureLayerDataSource } from 'jimu-core/data-source';
+
 import { JimuMapViewComponent, JimuMapView } from 'jimu-arcgis';
 import FeatureLayer from "esri/layers/FeatureLayer";
 import IdentityManager from 'esri/identity/IdentityManager';
@@ -41,12 +45,9 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
 
   const activeViewChangeHandler = (jmvObj: JimuMapView) => {
     if (jmvObj) {
+      setJimuView(jmvObj);
       mapViewRef.current = jmvObj.view;
       setMapView(jmvObj.view as MapView);
-      setJimuView(jmvObj);
-      getAccessToken();    
-      loadTraceList();     
-      projection.load();
     }
   };
 
@@ -57,10 +58,13 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         .whenOnce(() => jimuView.view.ready)
         .then(() => {
           console.log('MapView is ready.');
+          setMapLoad(true);
+          projection.load();
+
+          getAccessToken();    
+          loadTraceList();     
+        
         });
-
-      setMapLoad(true);
-
     }
   }, [jimuView]);
     
@@ -199,6 +203,9 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         queryLayerToHighLight(layer, globalIds);
       }
     });
+
+    // 除 highlight 外，額外加 selected 給其他 widget 使用
+    applyFilterToDataSources(globalIds);
   };
 
   const clearPreviousHighlights = () => {
@@ -236,6 +243,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         }).catch(error => {
           console.error("Error getting layerView: ", error);
         });
+
       }
     }).catch(error => {
       console.error("Query error: ", error);
@@ -410,6 +418,44 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
     xhr.send(formData);
   };
 
+  /////////////////////////////////////////////////////////
+  // 處理 DataSource  
+
+  const savedDataSources = useRef({}); 
+
+  const onDataSourceCreated = (dataSource: DataSource) => {
+    savedDataSources.current[dataSource.id] = dataSource;
+  };
+
+  // 額外加的 selected feature 供其他 widget 獲得 trace 成果 
+  const applyFilterToDataSources = (globalIds) => {
+
+    Object.values(savedDataSources.current).forEach((dataSource) => {
+      if (dataSource) {
+        const geometryType = dataSource.getGeometryType();
+        if (geometryType === 'esriGeometryPoint' || geometryType === 'esriGeometryPolyline' || geometryType === 'esriGeometryPolygon') {
+          const queryParams = {
+            where: `globalid IN ('${globalIds.join("','")}')`
+          } as QueryParams;
+
+          // 執行查詢後 select
+          dataSource.query(queryParams).then((result) => {
+            if (result.records.length > 0) {
+              //console.log('查詢成功:', result.records);
+
+              dataSource.selectRecordsByIds(result.records.map(record => record.getId()));
+            } else {
+              //console.log('無查詢結果');
+            }
+          }).catch(error => {
+            //console.error('查詢失敗:', error);
+          });
+        }
+      }
+
+    });
+  };
+
 
   return (
     <div className="jimu-widget">
@@ -437,6 +483,14 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
       )}
       {jimuView !== null && (
         <div className="main-grid" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          {props.useDataSources.map((ds, index) => (
+            <DataSourceComponent
+              key={index}
+              useDataSource={ds}
+              onDataSourceCreated={onDataSourceCreated}
+            />
+          ))}
+
           <div style={{ width: '100%' }}>
             <label style={{ marginRight: '10px' }}>
               <input

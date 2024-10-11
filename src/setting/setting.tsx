@@ -1,4 +1,4 @@
-﻿import { React } from 'jimu-core';
+﻿import { React, Immutable, AllDataSourceTypes } from 'jimu-core';
 import { AllWidgetSettingProps } from 'jimu-for-builder';
 import {
   MapWidgetSelector,
@@ -6,6 +6,8 @@ import {
   SettingRow
 } from 'jimu-ui/advanced/setting-components';
 import '../runtime/widget.css';
+
+import { DataSourceSelector } from 'jimu-ui/advanced/data-source-selector'
 
 const Setting = (props: AllWidgetSettingProps<IMConfig>) => {
 
@@ -25,6 +27,22 @@ const Setting = (props: AllWidgetSettingProps<IMConfig>) => {
       useMapWidgetIds: useMapWidgetId
     });
   };
+
+
+  const onToggleUseDataEnabled = (useDataSourcesEnabled: boolean) => {
+    props.onSettingChange({
+      id: props.id,
+      useDataSourcesEnabled
+    })
+  }
+
+  const onDataSourceChange = (useDataSources: UseDataSource[]) => {
+    props.onSettingChange({
+      id: props.id,
+      useDataSources: useDataSources
+    })
+  }
+
 
   return (
     <div>
@@ -47,6 +65,17 @@ const Setting = (props: AllWidgetSettingProps<IMConfig>) => {
           ></textarea>
         </SettingRow>
       </SettingSection>
+      <SettingSection title="資料源:">
+        <DataSourceSelector
+          types={Immutable([AllDataSourceTypes.FeatureLayer])}
+          useDataSources={props.useDataSources}
+          useDataSourcesEnabled={props.useDataSourcesEnabled}
+          onToggleUseDataEnabled={onToggleUseDataEnabled}
+          onChange={onDataSourceChange}
+          widgetId={props.id}
+          isMultiple={true}
+        />
+      </SettingSection>      
     </div>
   );
 };

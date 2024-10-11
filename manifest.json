@@ -13,5 +13,11 @@
   "defaultSize": {
     "width": 800,
     "height": 500
-  }
+  },
+  "useDataSources": [
+    {
+      "dataSourceId": "dataSource_7-d273032a4f7046b08e8065e2359ae8a7",
+      "types": ["WEBMAP", "FEATURE_LAYER"]
+    }
+  ]
 }
